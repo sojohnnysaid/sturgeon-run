@@ -1,0 +1,23 @@
+# Martin vector tile server config.
+# Off-the-shelf Rust tile server pointed at PostGIS. We auto-publish the
+# geometry tables so tiles track the data without hand-written tile SQL.
+# Connection string is injected from DATABASE_URL at runtime via envsubst-style
+# interpolation supported by Martin (${DATABASE_URL}).
+
+listen_addresses: "0.0.0.0:3000"
+
+postgres:
+  connection_string: ${DATABASE_URL}
+  # Pool + discovery
+  pool_size: 10
+  auto_publish:
+    from_schemas:
+      - public
+    tables:
+      # Only publish our domain tables (skip spatial_ref_sys etc.)
+      source_id_format: "{table}"
+      id_columns:
+        - id
+      clip_geom: true
+      buffer: 64
+      extent: 4096

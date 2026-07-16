@@ -27,5 +27,72 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  # ---- ingest: one-shot job (NOT started by `up`; run explicitly) ----------
+  # `docker compose run --rm ingest`  (add `--snapshot` to load from snapshots)
+  ingest:
+    build: ./ingest
+    image: sturgeon-run/ingest
+    profiles: ["jobs"]
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://sturgeon:change-me-in-dev@postgis:5432/sturgeon}
+      HUDSON_BBOX: ${HUDSON_BBOX:--74.10,40.55,-73.60,42.75}
+      GBIF_TAXON_NAME: ${GBIF_TAXON_NAME:-Acipenser oxyrinchus}
+      USGS_SITES: ${USGS_SITES:-}
+      USE_SNAPSHOT: ${USE_SNAPSHOT:-0}
+      WRITE_SNAPSHOT: ${WRITE_SNAPSHOT:-1}
+    volumes:
+      # Persist the quality report + snapshots back to the host repo.
+      - ./data:/data
+
+  # ---- corridor-api (Rust) -------------------------------------------------
+  corridor-api:
+    build: ./corridor-api
+    image: sturgeon-run/corridor-api
+    container_name: sturgeon-corridor-api
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://sturgeon:change-me-in-dev@postgis:5432/sturgeon}
+      CORRIDOR_API_BIND: 0.0.0.0:8080
+      CORRIDOR_HEX_METERS: ${CORRIDOR_HEX_METERS:-2000}
+      RUST_LOG: ${RUST_LOG:-info,corridor_api=debug}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+
+  # ---- tiles: Martin vector tile server (off-the-shelf) --------------------
+  tiles:
+    image: ghcr.io/maplibre/martin:v0.15.0
+    container_name: sturgeon-tiles
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://sturgeon:change-me-in-dev@postgis:5432/sturgeon}
+    command: ["--config", "/config/config.yaml"]
+    volumes:
+      - ./tiles/config.yaml:/config/config.yaml:ro
+    ports:
+      - "${MARTIN_PORT:-3000}:3000"
+    healthcheck:
+      # 127.0.0.1 (not localhost) — Martin binds IPv4; busybox wget would else
+      # try ::1 and get connection refused.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+
 volumes:
   pgdata:
