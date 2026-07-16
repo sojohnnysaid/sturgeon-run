@@ -1,0 +1,31 @@
+# Sturgeon Run — full-stack dev orchestration.
+# `docker compose up` brings up postgis, corridor-api, tiles, mcp, web.
+# ingest is a manually-run one-shot job: `docker compose run --rm ingest`.
+#
+# This file grows milestone by milestone. Services are added only once their
+# build context exists and has been verified.
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: sturgeon-postgis
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sturgeon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-sturgeon}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # pg_isready confirms the server accepts connections for our DB/user.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sturgeon} -d ${POSTGRES_DB:-sturgeon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
