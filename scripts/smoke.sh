@@ -3,9 +3,13 @@
 # tools/list + one tools/call. Fails loudly (non-zero) on the first problem.
 set -uo pipefail
 
-# Load .env if present so we get MCP_API_TOKEN and ports.
-if [[ -f .env ]]; then set -a; # shellcheck disable=SC1091
-  source .env; set +a; fi
+# Pull only the keys we need from .env (don't `source` it — values may contain
+# spaces, e.g. GBIF_TAXON_NAME="Acipenser oxyrinchus").
+envval() { [[ -f .env ]] && sed -n "s/^$1=//p" .env | tail -1 | sed 's/^"//; s/"$//'; }
+MCP_API_TOKEN="${MCP_API_TOKEN:-$(envval MCP_API_TOKEN)}"
+MARTIN_PORT="${MARTIN_PORT:-$(envval MARTIN_PORT)}"
+MCP_PORT="${MCP_PORT:-$(envval MCP_PORT)}"
+WEB_PORT="${WEB_PORT:-$(envval WEB_PORT)}"
 
 CORRIDOR_API="${CORRIDOR_API_HOST_URL:-http://localhost:8080}"
 TILES="${TILES_HOST_URL:-http://localhost:${MARTIN_PORT:-3000}}"

@@ -65,6 +65,7 @@ async fn main() {
         .route("/api/corridor", get(corridor))
         .route("/api/corridor/summary", get(corridor_summary))
         .route("/api/corridor/derive", post(corridor_derive))
+        .route("/api/quality-report", get(quality_report))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -352,6 +353,58 @@ async fn corridor_summary(
     {
         Ok(row) => json_string(row.get::<String, _>("body")),
         Err(e) => db_error("corridor_summary", e),
+    }
+}
+
+async fn quality_report(State(state): State<AppState>) -> Response {
+    // Latest run = the run_id whose MAX(run_at) is greatest. A single ingest
+    // run inserts one row per source sharing a run_id. Reconstruct the JSON
+    // shape of data/quality-report.json from those rows.
+    let sql = r#"
+        WITH latest AS (
+            SELECT run_id
+            FROM data_quality_reports
+            GROUP BY run_id
+            ORDER BY MAX(run_at) DESC
+            LIMIT 1
+        ),
+        rows AS (
+            SELECT d.*
+            FROM data_quality_reports d
+            JOIN latest l ON l.run_id = d.run_id
+        )
+        SELECT CASE
+            WHEN NOT EXISTS (SELECT 1 FROM rows) THEN
+                json_build_object(
+                    'run_id', NULL,
+                    'generated_at', NULL,
+                    'snapshot_mode', false,
+                    'sources', '[]'::json
+                )
+            ELSE
+                json_build_object(
+                    'run_id', (SELECT run_id FROM rows LIMIT 1),
+                    'generated_at', (SELECT MAX(run_at) FROM rows),
+                    'snapshot_mode', (SELECT bool_or(snapshot_mode) FROM rows),
+                    'sources', (
+                        SELECT json_agg(json_build_object(
+                            'source', source,
+                            'snapshot_mode', snapshot_mode,
+                            'records_fetched', records_fetched,
+                            'records_kept', records_kept,
+                            'records_dropped', records_dropped,
+                            'drop_reasons', drop_reasons,
+                            'notes', notes,
+                            'run_at', run_at
+                        ) ORDER BY source)
+                        FROM rows
+                    )
+                )
+            END::text AS body
+    "#;
+    match sqlx::query(sql).fetch_one(&state.pool).await {
+        Ok(row) => json_string(row.get::<String, _>("body")),
+        Err(e) => db_error("quality_report", e),
     }
 }
 

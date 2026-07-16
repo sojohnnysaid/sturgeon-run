@@ -1,0 +1,322 @@
+:root {
+  --base-deep: #0b1f24;
+  --base: #12343b;
+  --base-line: #1d4a54;
+  --eelgrass: #3fbfa0;
+  --eelgrass-light: #7fd6b0;
+  --sediment: #e0a458;
+  --station: #8bd3ff;
+  --text: #dceee9;
+  --text-dim: #7fa39c;
+  --danger: #e06a58;
+
+  --display: "Archivo", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--display);
+  color: var(--text);
+  background: var(--base-deep);
+}
+
+/* The map is the hero — full bleed under everything. */
+.app {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- Field log rail ---- */
+.fieldlog {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(11, 31, 36, 0.92);
+  border: 1px solid var(--base-line);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  z-index: 10;
+}
+
+.fieldlog__header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--base-line);
+}
+
+.fieldlog__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fieldlog__subtitle {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.fieldlog__body {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.fieldlog__section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 4px 2px 8px;
+}
+
+/* ---- Layer entries ---- */
+.layer {
+  border: 1px solid var(--base-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: rgba(18, 52, 59, 0.5);
+}
+
+.layer__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.layer__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+.layer__name {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.layer__count {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--eelgrass-light);
+}
+
+.layer__toggle {
+  appearance: none;
+  border: 1px solid var(--base-line);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+}
+
+.layer__toggle[data-on="true"] {
+  border-color: var(--eelgrass);
+  color: var(--eelgrass);
+}
+
+.layer__flags {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.flag {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(224, 164, 88, 0.5);
+  color: var(--sediment);
+  background: rgba(224, 164, 88, 0.08);
+}
+
+.flag--ok {
+  border-color: rgba(63, 191, 160, 0.5);
+  color: var(--eelgrass-light);
+  background: rgba(63, 191, 160, 0.08);
+}
+
+.flag--snapshot {
+  border-color: rgba(139, 211, 255, 0.5);
+  color: var(--station);
+  background: rgba(139, 211, 255, 0.08);
+}
+
+/* ---- Time filter ---- */
+.timefilter {
+  padding: 12px;
+  border-top: 1px solid var(--base-line);
+}
+
+.timefilter__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.timefilter__row label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  width: 30px;
+}
+
+.timefilter input[type="number"] {
+  flex: 1;
+  background: var(--base-deep);
+  border: 1px solid var(--base-line);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  min-width: 0;
+}
+
+.timefilter input[type="range"] {
+  width: 100%;
+  accent-color: var(--eelgrass);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  appearance: none;
+  width: 100%;
+  border: 1px solid var(--eelgrass);
+  background: rgba(63, 191, 160, 0.12);
+  color: var(--eelgrass-light);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 9px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn:hover {
+  background: rgba(63, 191, 160, 0.22);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 6px 2px 0;
+}
+
+.status--error {
+  color: var(--danger);
+}
+
+/* ---- MapLibre popup theming ---- */
+.maplibregl-popup-content {
+  background: var(--base);
+  color: var(--text);
+  border: 1px solid var(--base-line);
+  border-radius: 8px;
+  font-family: var(--display);
+  padding: 12px 14px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+}
+
+.maplibregl-popup-tip {
+  border-top-color: var(--base) !important;
+  border-bottom-color: var(--base) !important;
+}
+
+.maplibregl-popup-close-button {
+  color: var(--text-dim);
+  font-size: 16px;
+  padding: 2px 6px;
+}
+
+.popup__title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.popup__meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+.popup__readings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.popup__reading {
+  font-family: var(--mono);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--base-line);
+  padding-top: 5px;
+}
+
+.popup__reading b {
+  color: var(--eelgrass-light);
+  font-weight: 500;
+}
+
+.popup__reading span {
+  color: var(--text-dim);
+}
+
+.popup__empty {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
