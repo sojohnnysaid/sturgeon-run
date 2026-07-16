@@ -20,6 +20,11 @@ reasons behind them.
 > it visualizes where the public record says the species has been observed,
 > alongside the river conditions around those places.
 
+![The Sturgeon Run corridor atlas: Atlantic sturgeon occurrences (green),
+their hex-bin corridor density, and USGS monitoring stations (blue) over a
+self-contained Hudson estuary coastline, with a species picker and per-layer
+data-quality flags in the field-log panel.](web/verification-screenshot.png)
+
 ---
 
 ## Architecture

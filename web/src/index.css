@@ -83,6 +83,52 @@ body {
   color: var(--text-dim);
 }
 
+/* ---- Snapshot-mode badge (prominent) ---- */
+.snapshot-badge {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--sediment);
+  border-radius: 6px;
+  background: rgba(224, 164, 88, 0.14);
+  color: var(--sediment);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+/* ---- Inline error / empty state ---- */
+.error-banner {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: rgba(224, 106, 88, 0.1);
+}
+
+.error-banner__title {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.error-banner__msg {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.error-banner__hint {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
 .fieldlog__body {
   padding: 12px;
   overflow-y: auto;

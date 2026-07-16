@@ -80,9 +80,26 @@ export default function FieldLog({
           Hudson estuary field log
           {report?.run_id ? ` · run ${report.run_id}` : ""}
         </p>
+        {snapshot && (
+          <div className="snapshot-badge" title="Data loaded from cached snapshots, not a live API fetch">
+            ⦿ SNAPSHOT MODE — cached data, not a live fetch
+          </div>
+        )}
       </div>
 
       <div className="fieldlog__body">
+        {error && (
+          <div className="error-banner" role="alert">
+            <div className="error-banner__title">⚠ Data unavailable</div>
+            <div className="error-banner__msg">{error}</div>
+            <div className="error-banner__hint">
+              The corridor-api may be starting or unreachable. The map still
+              shows the base geography; reload once the API is reachable to load
+              the data layers.
+            </div>
+          </div>
+        )}
+
         {species.length > 0 && (
           <div className="species-picker">
             <label className="fieldlog__section-label" htmlFor="species-select">
@@ -128,9 +145,7 @@ export default function FieldLog({
           </div>
         ))}
 
-        <div className={error ? "status status--error" : "status"}>
-          {error ? `error: ${error}` : status}
-        </div>
+        <div className="status">{error ? "showing base geography only" : status}</div>
       </div>
 
       <TimeFilter
