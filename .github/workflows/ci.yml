@@ -1,0 +1,77 @@
+name: CI
+
+# Deterministic CI: unit tests + lints, then build every image, bring the
+# stack up, ingest from the COMMITTED real snapshot fixture (ci/snapshots/,
+# snapshot mode — never touches live GBIF/USGS), and run the end-to-end smoke.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---- toolchains ----
+      - name: Install Rust (stable + rustfmt + clippy)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: corridor-api
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # ---- (a) lints + unit tests ----
+      - name: Rust fmt
+        working-directory: corridor-api
+        run: cargo fmt --check
+      - name: Rust clippy
+        working-directory: corridor-api
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Web install
+        working-directory: web
+        run: npm ci
+      - name: TypeScript typecheck
+        working-directory: web
+        run: npx tsc -b --noEmit
+      - name: Unit tests (Python validators in Docker + Rust params)
+        run: make test
+
+      # ---- (b) build every service image ----
+      - name: Build all images
+        run: docker compose --profile jobs build
+
+      # ---- (c) stack up + snapshot ingest + smoke ----
+      - name: Create .env + throwaway MCP token
+        run: |
+          make env
+          echo "MCP_API_TOKEN=ci-$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+      - name: Start stack (wait for healthy)
+        run: docker compose up -d --wait --wait-timeout 180
+      - name: Load committed CI snapshots (real captured responses)
+        run: |
+          mkdir -p data/snapshots
+          cp ci/snapshots/* data/snapshots/
+      - name: Ingest (snapshot mode) + derive corridor
+        run: |
+          make ingest-snapshot
+          make derive
+      - name: Smoke test (end to end)
+        run: make smoke
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose logs --tail=200

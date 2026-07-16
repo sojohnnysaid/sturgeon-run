@@ -20,8 +20,8 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use corridor_api::params::{
-    parse_date_opt, parse_hex_meters_or, parse_limit, parse_parameter_cd_opt,
-    parse_species_id_opt, parse_species_id_or,
+    parse_date_opt, parse_hex_meters_or, parse_limit, parse_parameter_cd_opt, parse_species_id_opt,
+    parse_species_id_or,
 };
 
 #[derive(Clone)]
@@ -95,12 +95,7 @@ fn json_string(body: String) -> Response {
 /// Build a `{"error": msg}` response with the given status code.
 fn json_error(status: StatusCode, msg: impl Into<String>) -> Response {
     let body = serde_json::json!({ "error": msg.into() }).to_string();
-    (
-        status,
-        [(header::CONTENT_TYPE, "application/json")],
-        body,
-    )
-        .into_response()
+    (status, [(header::CONTENT_TYPE, "application/json")], body).into_response()
 }
 
 /// Log a DB error and return a 500.

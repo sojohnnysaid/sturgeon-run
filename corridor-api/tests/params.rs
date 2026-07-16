@@ -2,8 +2,8 @@
 
 use chrono::NaiveDate;
 use corridor_api::params::{
-    parse_date_opt, parse_hex_meters_or, parse_limit, parse_parameter_cd_opt,
-    parse_species_id_opt, parse_species_id_or, DEFAULT_LIMIT, MAX_LIMIT,
+    parse_date_opt, parse_hex_meters_or, parse_limit, parse_parameter_cd_opt, parse_species_id_opt,
+    parse_species_id_or, DEFAULT_LIMIT, MAX_LIMIT,
 };
 
 // ---- dates ----------------------------------------------------------------
@@ -101,6 +101,12 @@ fn parameter_cd_optional() {
     assert_eq!(parse_parameter_cd_opt(None), None);
     assert_eq!(parse_parameter_cd_opt(Some("")), None);
     assert_eq!(parse_parameter_cd_opt(Some("  ")), None);
-    assert_eq!(parse_parameter_cd_opt(Some("00010")), Some("00010".to_string()));
-    assert_eq!(parse_parameter_cd_opt(Some(" 00060 ")), Some("00060".to_string()));
+    assert_eq!(
+        parse_parameter_cd_opt(Some("00010")),
+        Some("00010".to_string())
+    );
+    assert_eq!(
+        parse_parameter_cd_opt(Some(" 00060 ")),
+        Some("00060".to_string())
+    );
 }

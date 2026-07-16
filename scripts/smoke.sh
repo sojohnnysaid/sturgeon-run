@@ -4,7 +4,7 @@
 set -uo pipefail
 
 # Pull only the keys we need from .env (don't `source` it — values may contain
-# spaces, e.g. GBIF_TAXON_NAME="Acipenser oxyrinchus").
+# spaces, e.g. GBIF_TAXON_NAMES="Acipenser oxyrinchus,Morone saxatilis").
 envval() { [[ -f .env ]] && sed -n "s/^$1=//p" .env | tail -1 | sed 's/^"//; s/"$//'; }
 MCP_API_TOKEN="${MCP_API_TOKEN:-$(envval MCP_API_TOKEN)}"
 MARTIN_PORT="${MARTIN_PORT:-$(envval MARTIN_PORT)}"
