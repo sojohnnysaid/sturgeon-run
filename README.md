@@ -90,6 +90,20 @@ callable tools, reading through `corridor-api` rather than the database.
 
 ### Docker Compose (primary dev path)
 
+**Recommended — one command from a clean checkout to a verified, loaded stack:**
+
+```bash
+make bootstrap     # build + start, wait for healthy, ingest, derive, smoke
+open http://localhost:5173
+```
+
+`make bootstrap` is unattended: it creates `.env` from the example, writes a
+throwaway `MCP_API_TOKEN` if none is set (so the MCP endpoint is enabled for the
+smoke check), brings the whole stack up with `--wait`, pulls real GBIF + USGS
+data, computes the corridor for every species, and runs the end-to-end smoke.
+
+**Or run the steps yourself:**
+
 ```bash
 cp .env.example .env
 # Optional but recommended: set a token to enable the MCP endpoint
@@ -97,7 +111,7 @@ cp .env.example .env
 
 make up            # build + start postgis, corridor-api, tiles, mcp, web
 make ingest        # one-shot: pull real GBIF + USGS data into PostGIS
-make derive        # compute the derived corridor (hex-bin) layer
+make derive        # compute the derived corridor (hex-bin) layer for each species
 make smoke         # curl every healthcheck + MCP tools/list + one tools/call
 
 # then open the atlas

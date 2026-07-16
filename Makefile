@@ -20,6 +20,21 @@ up: env ## Build and start the long-running stack (postgis, corridor-api, tiles,
 	$(COMPOSE) up -d --build
 	@echo "stack up. Run 'make ingest' to load data, then open http://localhost:5173"
 
+.PHONY: bootstrap
+bootstrap: env ## One command: clean checkout -> built, healthy, loaded, verified stack
+	# Ensure the MCP endpoint is enabled so `make smoke` can exercise it: if no
+	# MCP_API_TOKEN is set, write a throwaway dev token (idempotent — the last
+	# assignment in .env wins for both compose and smoke).
+	@grep -qE '^MCP_API_TOKEN=.+' .env || { \
+		echo "MCP_API_TOKEN=dev-bootstrap-$$(openssl rand -hex 8)" >> .env; \
+		echo "bootstrap: no MCP_API_TOKEN set — wrote a throwaway dev token to .env"; \
+	}
+	$(COMPOSE) up -d --build --wait
+	$(COMPOSE) run --rm ingest
+	@$(MAKE) derive
+	@$(MAKE) smoke
+	@echo "bootstrap complete — open http://localhost:5173"
+
 .PHONY: down
 down: ## Stop the stack (keeps the postgis volume)
 	$(COMPOSE) down
