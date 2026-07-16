@@ -3,12 +3,12 @@
 **An open geospatial platform for seeing the Hudson River estuary the way an
 endangered Atlantic sturgeon experiences it.**
 
-Sturgeon Run ingests real public data — [GBIF](https://www.gbif.org/) species
+Sturgeon Run ingests real public data ([GBIF](https://www.gbif.org/) species
 occurrence records and [USGS](https://waterdata.usgs.gov/nwis) water monitoring
-feeds — cleans and assesses it, and serves it as an interactive **corridor
+feeds), cleans and assesses it, and serves it as an interactive **corridor
 atlas**: migration/occurrence corridors layered with water conditions and
 habitat context on a single map. It is built to be a living resource a research
-group can actually extend — new species, new data layers, new contributors —
+group can actually extend (new species, new data layers, new contributors),
 and it is honest about data quality and provenance at every step. The audience
 is scientists and conservation teams, so nothing here hand-waves: derived
 layers are labeled as derived, and every layer carries the counts and the
@@ -73,16 +73,52 @@ serves vector tiles straight from the geometry tables. `web` draws the single
 map from the API and tiles. `mcp` exposes the same dataset to AI agents as
 callable tools, reading through `corridor-api` rather than the database.
 
+### Data pipeline (fetch, validate, derive, serve)
+
+Where the architecture diagram above shows the services, this one shows what
+happens to the data, and where provenance is recorded. Every record is either
+kept or dropped with a stated reason, and both counts land in the quality
+report; the corridor is derived, never fetched.
+
+```mermaid
+flowchart TD
+    subgraph src[1 Fetch real public data]
+        G[("GBIF API<br/>occurrences per taxon")]
+        U[("USGS NWIS API<br/>sites + readings")]
+    end
+
+    G --> V{"2 Validate<br/>coords, bbox, basis,<br/>dates, de-dup"}
+    U --> V
+    V -->|kept| DB[("3 postgis<br/>occurrences by species_id,<br/>stations, readings")]
+    V -->|"dropped, with reasons"| Q["quality report<br/>kept / dropped counts,<br/>snapshot_mode flag"]
+    DB --> Q
+
+    DB --> D["4 Derive corridor<br/>ST_HexagonGrid density<br/>per species_id"]
+    D --> DB
+
+    DB --> API["corridor-api<br/>GeoJSON + summary"]
+    DB --> T["tiles Martin<br/>vector tiles"]
+    API --> W["web atlas<br/>species picker, layers,<br/>quality + snapshot flags"]
+    T --> W
+    API --> M[["mcp tools<br/>for AI agents"]]
+    Q --> W
+
+    classDef step fill:#12343b,stroke:#4a8f9c,color:#dff5f9;
+    classDef drop fill:#3a1f1c,stroke:#e06a58,color:#ffe9e5;
+    class G,U,DB,D,API,T,W,M step;
+    class V,Q drop;
+```
+
 ### Why each language, per service
 
 | Service | Language / stack | Why this choice |
 |---|---|---|
 | **ingest** | Python | Data-wrangling ergonomics: pulling messy real-world API responses, parsing dates/intervals, coordinate validation, and dedup is exactly what Python's ecosystem is built for. Fast to write and read, easy for scientists to extend. |
 | **corridor-api** | Rust (axum + sqlx) | Efficiency on the hot path. This is the service every map pan and every agent hits; Rust gives predictable low latency and memory safety for concurrent GeoJSON serving and the corridor derivation query. |
-| **tiles** | Martin (Rust) — off-the-shelf | Vector tiles are a solved problem; Martin is a mature, fast PostGIS tile server. We point it at the DB rather than writing (and maintaining) our own tile server. |
+| **tiles** | Martin (Rust), off-the-shelf | Vector tiles are a solved problem; Martin is a mature, fast PostGIS tile server. We point it at the DB rather than writing (and maintaining) our own tile server. |
 | **mcp** | TypeScript (Node) | The MCP + JSON-RPC + zod-schema ecosystem is most mature in TypeScript, and zod gives us tool input schemas that serialize straight to JSON Schema for `tools/list`. |
 | **web** | React + TypeScript + Vite + MapLibre GL | MapLibre is the standard open vector-map renderer; React + Vite is a fast, familiar front-end path for contributors. |
-| **postgis** | `postgis/postgis` — off-the-shelf | The system of record. PostGIS is the reference spatial database; no reason to build our own. |
+| **postgis** | `postgis/postgis`, off-the-shelf | The system of record. PostGIS is the reference spatial database; no reason to build our own. |
 
 ---
 
@@ -90,7 +126,7 @@ callable tools, reading through `corridor-api` rather than the database.
 
 ### Docker Compose (primary dev path)
 
-**Recommended — one command from a clean checkout to a verified, loaded stack:**
+**Recommended: one command from a clean checkout to a verified, loaded stack.**
 
 ```bash
 make bootstrap     # build + start, wait for healthy, ingest, derive, smoke
@@ -118,7 +154,7 @@ make smoke         # curl every healthcheck + MCP tools/list + one tools/call
 open http://localhost:5173
 ```
 
-Ingest is a **manually-run one-shot job** (not part of `up`) and is idempotent —
+Ingest is a **manually-run one-shot job** (not part of `up`) and is idempotent;
 re-running it will not duplicate rows.
 
 If an upstream API is unreachable, run from a cached snapshot instead of failing
@@ -161,12 +197,12 @@ never the database directly.
 
 | Tool | Arguments | Returns |
 |---|---|---|
-| `list_species` | — | Tracked species and their GBIF taxon keys |
+| `list_species` | (none) | Tracked species and their GBIF taxon keys |
 | `get_occurrences` | `bbox?`, `from?`, `to?`, `species_id?`, `limit?` | Occurrence points (GeoJSON) in range |
-| `get_stations` | — | USGS monitoring stations (GeoJSON) |
+| `get_stations` | (none) | USGS monitoring stations (GeoJSON) |
 | `get_latest_readings` | `parameter_cd?` | Latest reading per station/parameter |
 | `get_corridor_summary` | `species_id?` | Corridor cell/occurrence counts + extent |
-| `get_data_quality_report` | — | The ingest data-quality report (counts kept/dropped, reasons) |
+| `get_data_quality_report` | (none) | The ingest data-quality report (counts kept/dropped, reasons) |
 
 Example:
 
@@ -183,7 +219,7 @@ curl -s -X POST http://localhost:8081/mcp \
 
 - **Researchers.** A fisheries lab studying Hudson sturgeon can pull every
   public occurrence in the estuary, see it against real-time water temperature
-  and salinity from USGS gauges, and export the exact GeoJSON behind a figure —
+  and salinity from USGS gauges, and export the exact GeoJSON behind a figure,
   with the quality report documenting what was dropped and why, so the figure is
   defensible.
 - **Conservation nonprofits.** A river-keeper organization can point to the
@@ -191,15 +227,15 @@ curl -s -X POST http://localhost:8081/mcp \
   observations cluster relative to a proposed dredging or construction zone,
   using data whose provenance is transparent rather than a black-box heat map.
 - **Educators.** A university GIS or marine-biology course can give students a
-  real, running spatial-data stack — live APIs, a spatial database, a tile
-  server, a map front end, and an agent interface — to explore, extend, and
+  real, running spatial-data stack (live APIs, a spatial database, a tile
+  server, a map front end, and an agent interface) to explore, extend, and
   critique, including its honest limitations.
 
 ---
 
 ## Data & Limitations
 
-**Be skeptical — this section is the point.**
+**Be skeptical. This section is the point.**
 
 - **What's real.** Occurrence points come from **GBIF** (species occurrence
   records contributed by many datasets). Monitoring stations and water readings
@@ -208,7 +244,7 @@ curl -s -X POST http://localhost:8081/mcp \
   sense of scale, a representative live fetch of the Hudson bbox returns on the
   order of **~29 georeferenced Atlantic sturgeon occurrences, ~40 active USGS
   stations, and ~84 latest readings** (temperature, discharge, gage height,
-  dissolved oxygen, conductance) — this is genuinely how sparse the public
+  dissolved oxygen, conductance). This is genuinely how sparse the public
   occurrence record is for an endangered species, not a demo subset. The exact
   per-run counts (and what was dropped, and why) are always in the quality
   report. When live
@@ -221,7 +257,7 @@ curl -s -X POST http://localhost:8081/mcp \
   occurrences and the corridor by `species_id`. Atlantic sturgeon is the
   flagship; adding e.g. striped bass (*Morone saxatilis*) is config + re-run,
   and the web field-log gains a species picker. A representative multi-species
-  run returns ~29 sturgeon and ~749 striped bass occurrences in the bbox — a
+  run returns ~29 sturgeon and ~749 striped bass occurrences in the bbox, a
   reminder that "how many records exist" is itself effort-biased, not abundance.
 
 - **Continuous integration.** GitHub Actions
@@ -231,7 +267,7 @@ curl -s -X POST http://localhost:8081/mcp \
   CI ingests from a small **real** captured snapshot committed under
   `ci/snapshots/` (flagged `snapshot_mode: true`), never fabricated data.
 
-- **What's derived — read this carefully.** The **corridor layer is a
+- **What's derived (read this carefully).** The **corridor layer is a
   statistical artifact of the occurrence data, not tracked animal paths.** It is
   a hex-bin density surface: occurrence points are binned into hexagonal cells
   (edge length `CORRIDOR_HEX_METERS`, computed in UTM 18N) and each cell is
@@ -273,7 +309,7 @@ with reasons.
   is [Natural Earth](https://www.naturalearthdata.com/) 1:10m physical vectors
   (land polygons + river centerlines), which are **public domain**. It is
   clipped to the Hudson estuary and simplified by `web/scripts/build_basemap.py`
-  and **bundled locally** (`web/src/basemap/hudson.geojson`, ~18 KB) — the app
+  and **bundled locally** (`web/src/basemap/hudson.geojson`, ~18 KB). The app
   fetches no external basemap, tiles, fonts, or CDN assets and stays fully
   offline-capable.
 
@@ -293,5 +329,5 @@ scripts/smoke.sh   end-to-end smoke check
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Contributions welcome; see
+MIT. See [LICENSE](LICENSE). Contributions welcome; see
 [CONTRIBUTING.md](CONTRIBUTING.md).
