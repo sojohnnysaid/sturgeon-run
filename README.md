@@ -235,6 +235,13 @@ with reasons.
 - **USGS.** Water data courtesy of the U.S. Geological Survey, National Water
   Information System (NWIS). U.S. Geological Survey data are in the public
   domain; credit the USGS. See <https://waterdata.usgs.gov/>.
+- **Basemap (Natural Earth).** The quiet land/coastline reference under the data
+  is [Natural Earth](https://www.naturalearthdata.com/) 1:10m physical vectors
+  (land polygons + river centerlines), which are **public domain**. It is
+  clipped to the Hudson estuary and simplified by `web/scripts/build_basemap.py`
+  and **bundled locally** (`web/src/basemap/hudson.geojson`, ~18 KB) — the app
+  fetches no external basemap, tiles, fonts, or CDN assets and stays fully
+  offline-capable.
 
 ## Project layout
 

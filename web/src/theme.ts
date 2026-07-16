@@ -5,6 +5,9 @@ export const palette = {
   baseLine: "#1d4a54", // hairline borders
   water: "#0d262c", // map water fill
   land: "#12343b", // (unused — we render a solid dark base)
+  landFill: "#0f2b31", // bundled basemap land polygons (quiet, above the water)
+  shoreline: "#245560", // bundled basemap coastline stroke
+  riverLine: "#1f6470", // bundled basemap Hudson channel thread
   eelgrass: "#3fbfa0", // occurrences / corridor
   eelgrassLight: "#7fd6b0", // corridor highlight
   sediment: "#e0a458", // quality flags
