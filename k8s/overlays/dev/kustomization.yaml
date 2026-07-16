@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Dev overlay: puts everything in the sturgeon-run namespace, supplies dev
+# secret values, and exposes services via NodePort. Mirrors docker-compose.
+namespace: sturgeon-run
+
+resources:
+  - namespace.yaml
+  - ../../base
+
+# Strategic-merge patches matched by resource identity (name/kind). secret-dev
+# replaces the empty base placeholder; nodeports.yaml carries one patch doc per
+# Service to switch it to NodePort.
+patches:
+  - path: secret-dev.yaml
+  - path: nodeports.yaml

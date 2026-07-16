@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tiles
+  labels: { app: tiles }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: tiles }
+  template:
+    metadata:
+      labels: { app: tiles }
+    spec:
+      containers:
+        - name: tiles
+          image: ghcr.io/maplibre/martin:v0.15.0
+          args: ["--config", "/config/config.yaml"]
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: sturgeon-secrets, key: DATABASE_URL } }
+          volumeMounts:
+            - name: martin-config
+              mountPath: /config
+              readOnly: true
+          readinessProbe:
+            httpGet: { path: /health, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: martin-config
+          configMap:
+            name: martin-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tiles
+spec:
+  selector: { app: tiles }
+  ports:
+    - port: 3000
+      targetPort: 3000

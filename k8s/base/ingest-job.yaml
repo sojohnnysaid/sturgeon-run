@@ -1,0 +1,32 @@
+# One-shot ingest job (mirrors `docker compose run ingest`). Re-runnable:
+#   kubectl delete job ingest --ignore-not-found && kubectl apply -k k8s/overlays/dev
+# Ingest is idempotent, so re-running will not duplicate rows.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ingest
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels: { app: ingest }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingest
+          image: sturgeon-run/ingest:latest
+          imagePullPolicy: IfNotPresent
+          args: ["--source", "all"]
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: sturgeon-secrets, key: DATABASE_URL } }
+            - name: HUDSON_BBOX
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: HUDSON_BBOX } }
+            - name: GBIF_TAXON_NAME
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: GBIF_TAXON_NAME } }
+            - name: USGS_SITES
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: USGS_SITES } }
+            - name: USE_SNAPSHOT
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: USE_SNAPSHOT } }
+            - name: WRITE_SNAPSHOT
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: WRITE_SNAPSHOT } }

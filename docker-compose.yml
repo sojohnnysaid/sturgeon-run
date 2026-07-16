@@ -94,5 +94,48 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  # ---- mcp (TypeScript): agent-callable tools over Streamable HTTP JSON-RPC --
+  mcp:
+    build: ./mcp
+    image: sturgeon-run/mcp
+    container_name: sturgeon-mcp
+    depends_on:
+      corridor-api:
+        condition: service_healthy
+    environment:
+      MCP_PORT: ${MCP_PORT:-8081}
+      CORRIDOR_API_URL: ${CORRIDOR_API_URL:-http://corridor-api:8080}
+      # Empty token => endpoint disabled (503, fail-closed). Set in .env to enable.
+      MCP_API_TOKEN: ${MCP_API_TOKEN:-}
+    ports:
+      - "${MCP_PORT:-8081}:8081"
+    healthcheck:
+      # node has global fetch; avoids needing curl in the slim image.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---- web (React + Vite + MapLibre): the single-pane corridor atlas --------
+  web:
+    build: ./web
+    image: sturgeon-run/web
+    container_name: sturgeon-web
+    depends_on:
+      corridor-api:
+        condition: service_healthy
+      tiles:
+        condition: service_healthy
+    environment:
+      # Vite dev server proxies /api and /tiles to these in-compose services,
+      # so the browser only ever talks to the web origin (no CORS).
+      VITE_PROXY_API_TARGET: ${VITE_PROXY_API_TARGET:-http://corridor-api:8080}
+      VITE_PROXY_TILES_TARGET: ${VITE_PROXY_TILES_TARGET:-http://tiles:3000}
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    restart: unless-stopped
+
 volumes:
   pgdata:

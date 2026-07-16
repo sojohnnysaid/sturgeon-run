@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: corridor-api
+  labels: { app: corridor-api }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: corridor-api }
+  template:
+    metadata:
+      labels: { app: corridor-api }
+    spec:
+      containers:
+        - name: corridor-api
+          image: sturgeon-run/corridor-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: sturgeon-secrets, key: DATABASE_URL } }
+            - name: CORRIDOR_API_BIND
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: CORRIDOR_API_BIND } }
+            - name: CORRIDOR_HEX_METERS
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: CORRIDOR_HEX_METERS } }
+            - name: RUST_LOG
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: RUST_LOG } }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: corridor-api
+spec:
+  selector: { app: corridor-api }
+  ports:
+    - port: 8080
+      targetPort: 8080

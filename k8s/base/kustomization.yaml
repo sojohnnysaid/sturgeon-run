@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Stable names (no hash suffix) so Deployments can reference the generated
+# ConfigMaps by fixed name.
+generatorOptions:
+  disableNameSuffixHash: true
+
+resources:
+  - config.yaml
+  - secret.yaml
+  - postgis.yaml
+  - corridor-api.yaml
+  - tiles.yaml
+  - mcp.yaml
+  - web.yaml
+  - ingest-job.yaml
+
+configMapGenerator:
+  # PostGIS init SQL, mounted at /docker-entrypoint-initdb.d (mirrors compose).
+  - name: db-init
+    files:
+      - ../../db/init/01_extensions.sql
+      - ../../db/init/02_schema.sql
+      - ../../db/init/03_indexes.sql
+  # Martin tile server config.
+  - name: martin-config
+    files:
+      - config.yaml=../../tiles/config.yaml

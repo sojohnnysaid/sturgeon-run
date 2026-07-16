@@ -88,6 +88,16 @@ Base: `http://corridor-api:8080` (host: `http://localhost:8080`).
 - `GET /api/corridor?species_id=1` → GeoJSON `FeatureCollection`, Polygon
   (hex) features. `properties`: `{id, occurrence_count, hex_meters}`.
 
+- `GET /api/quality-report` → latest ingest run's data-quality report,
+  reconstructed from `data_quality_reports` (the row group with the most recent
+  `run_at`). Same shape as `data/quality-report.json`:
+  ```json
+  {"run_id":"...","generated_at":"2026-07-16T03:19:28Z","snapshot_mode":false,
+   "sources":[{"source":"gbif","snapshot_mode":false,"records_fetched":29,
+   "records_kept":29,"records_dropped":0,"drop_reasons":{},"notes":"...","run_at":"..."}]}
+  ```
+  Empty table → `{"run_id":null,"generated_at":null,"snapshot_mode":false,"sources":[]}`.
+
 - `GET /api/corridor/summary?species_id=1` → JSON object
   ```json
   {"species_id":1,"cell_count":42,"occurrence_count":640,"hex_meters":2000,

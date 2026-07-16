@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels: { app: web }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      containers:
+        - name: web
+          image: sturgeon-run/web:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5173
+          env:
+            # The Vite dev server proxies /api and /tiles to these in-cluster
+            # services, so the browser only ever talks to the web origin.
+            - name: VITE_PROXY_API_TARGET
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: VITE_PROXY_API_TARGET } }
+            - name: VITE_PROXY_TILES_TARGET
+              valueFrom: { configMapKeyRef: { name: sturgeon-config, key: VITE_PROXY_TILES_TARGET } }
+          readinessProbe:
+            httpGet: { path: /, port: 5173 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector: { app: web }
+  ports:
+    - port: 5173
+      targetPort: 5173

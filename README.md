@@ -114,12 +114,21 @@ make ingest-snapshot   # loads data/snapshots/*, marks snapshot_mode in the repo
 Mirrors the compose topology for a dev cluster (e.g. kind/minikube):
 
 ```bash
-kubectl kustomize k8s/overlays/dev      # render/inspect
-kubectl apply -k k8s/overlays/dev       # apply to your cluster
+# LoadRestrictionsNone lets the base pull the shared db/init SQL + tiles config
+# (single source of truth) instead of duplicating them under k8s/.
+make k8s-render                         # render/inspect (kubectl kustomize ...)
+make k8s-apply                          # apply to the current kube context
+
+# On kind/minikube, load the locally-built images first, e.g. for kind:
+#   for s in corridor-api ingest mcp web; do kind load docker-image sturgeon-run/$s:latest; done
+# Then run the one-shot ingest job:
+#   kubectl -n sturgeon-run delete job ingest --ignore-not-found && make k8s-apply
 ```
 
-The MCP token is a Secret placeholder (`k8s/base`) — populate it before relying
-on the MCP endpoint. No secrets are committed.
+`k8s/base` ships an **empty** `sturgeon-secrets` Secret (placeholder) so nothing
+sensitive is committed; the `dev` overlay fills throwaway dev values (including
+`MCP_API_TOKEN`) and exposes services via NodePort (web `:30573`, mcp `:30081`,
+corridor-api `:30080`, tiles `:30300`). Replace the secret for any real cluster.
 
 ---
 

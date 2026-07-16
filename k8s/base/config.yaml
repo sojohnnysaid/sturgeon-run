@@ -1,0 +1,24 @@
+# Non-secret app configuration shared across services (mirrors .env.example).
+# Secrets (DB password, DATABASE_URL, MCP token) live in Secret objects and are
+# provided by the overlay's secretGenerator — nothing sensitive is committed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sturgeon-config
+data:
+  POSTGRES_USER: "sturgeon"
+  POSTGRES_DB: "sturgeon"
+  HUDSON_BBOX: "-74.10,40.55,-73.60,42.75"
+  GBIF_TAXON_NAME: "Acipenser oxyrinchus"
+  USGS_SITES: ""
+  USE_SNAPSHOT: "0"
+  WRITE_SNAPSHOT: "1"
+  CORRIDOR_API_BIND: "0.0.0.0:8080"
+  CORRIDOR_API_URL: "http://corridor-api:8080"
+  CORRIDOR_HEX_METERS: "2000"
+  RUST_LOG: "info,corridor_api=debug"
+  MARTIN_PORT: "3000"
+  MCP_PORT: "8081"
+  WEB_PORT: "5173"
+  VITE_PROXY_API_TARGET: "http://corridor-api:8080"
+  VITE_PROXY_TILES_TARGET: "http://tiles:3000"

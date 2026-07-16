@@ -55,4 +55,10 @@ logs: ## Tail logs for all services
 
 .PHONY: k8s-render
 k8s-render: ## Render the dev kustomize overlay (no cluster needed)
-	kubectl kustomize k8s/overlays/dev
+	# LoadRestrictionsNone lets base/ pull the shared db/init SQL + tiles config
+	# (single source of truth) rather than duplicating them under k8s/.
+	kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/dev
+
+.PHONY: k8s-apply
+k8s-apply: ## Apply the dev overlay to the current kube context
+	kubectl apply -k k8s/overlays/dev --load-restrictor LoadRestrictionsNone

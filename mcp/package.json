@@ -1,0 +1,23 @@
+{
+  "name": "sturgeon-run-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sturgeon Run MCP server (Streamable HTTP JSON-RPC) over corridor-api",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "zod": "^3.24.1",
+    "zod-to-json-schema": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
