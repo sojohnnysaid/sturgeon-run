@@ -24,7 +24,8 @@ spec:
     spec:
       containers:
         - name: postgis
-          image: postgis/postgis:16-3.4
+          # Multi-arch (amd64 + native arm64) PostGIS 16 / 3.5 — mirrors compose.
+          image: ghcr.io/baosystems/postgis:16-3.5
           ports:
             - containerPort: 5432
           env:

@@ -7,7 +7,12 @@
 
 services:
   postgis:
-    image: postgis/postgis:16-3.4
+    # Multi-arch (linux/amd64 + native linux/arm64) PostGIS 16 / PostGIS 3.5 /
+    # GEOS 3.9 — has ST_HexagonGrid (>=3.1). The official postgis/postgis image
+    # is amd64-only, which forced slow QEMU emulation on Apple Silicon; this
+    # community build ships a native arm64 manifest so no platform-mismatch
+    # warning appears on arm64 hosts while keeping amd64 for CI.
+    image: ghcr.io/baosystems/postgis:16-3.5
     container_name: sturgeon-postgis
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sturgeon}
