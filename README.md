@@ -185,7 +185,14 @@ curl -s -X POST http://localhost:8081/mcp \
 - **What's real.** Occurrence points come from **GBIF** (species occurrence
   records contributed by many datasets). Monitoring stations and water readings
   come from the **USGS National Water Information System** (NWIS)
-  instantaneous-values service. Nothing in the pipeline is synthetic. When live
+  instantaneous-values service. Nothing in the pipeline is synthetic. As a
+  sense of scale, a representative live fetch of the Hudson bbox returns on the
+  order of **~29 georeferenced Atlantic sturgeon occurrences, ~40 active USGS
+  stations, and ~84 latest readings** (temperature, discharge, gage height,
+  dissolved oxygen, conductance) — this is genuinely how sparse the public
+  occurrence record is for an endangered species, not a demo subset. The exact
+  per-run counts (and what was dropped, and why) are always in the quality
+  report. When live
   APIs are unreachable, ingest can load a cached snapshot of a previous real
   fetch (`data/snapshots/`), and the quality report is flagged
   `snapshot_mode: true`. Data is never fabricated.

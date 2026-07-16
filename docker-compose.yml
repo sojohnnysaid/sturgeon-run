@@ -135,6 +135,12 @@ services:
       VITE_PROXY_TILES_TARGET: ${VITE_PROXY_TILES_TARGET:-http://tiles:3000}
     ports:
       - "${WEB_PORT:-5173}:5173"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     restart: unless-stopped
 
 volumes:
