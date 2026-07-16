@@ -45,8 +45,21 @@ smoke: ## Curl every healthcheck + MCP tools/list + one tools/call; fail loudly
 	./scripts/smoke.sh
 
 .PHONY: test
-test: ## Run ingest (Python) + corridor-api (Rust) unit tests
-	cd ingest && python3 -m pytest -q
+test: test-python test-rust ## Run ingest (Python, in Docker) + corridor-api (Rust) unit tests
+
+.PHONY: test-python
+test-python: ## Run the Python validator tests inside the ingest image (no host Python needed)
+	# Self-provisioning: pytest ships in ingest/requirements.txt, so the tests run
+	# INSIDE the ingest image. `make test` therefore needs NO host Python packages
+	# (only Docker) and passes identically on a clean machine and in CI.
+	$(COMPOSE) build ingest
+	docker run --rm --entrypoint python \
+		-e PYTHONDONTWRITEBYTECODE=1 \
+		-v "$(CURDIR)/ingest/tests:/app/tests:ro" \
+		sturgeon-run/ingest -m pytest -q -p no:cacheprovider tests
+
+.PHONY: test-rust
+test-rust: ## Run the corridor-api Rust query-param tests (needs cargo)
 	cd corridor-api && cargo test --quiet
 
 .PHONY: logs

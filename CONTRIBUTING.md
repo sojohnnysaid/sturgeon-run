@@ -28,6 +28,12 @@ make smoke                    # verify everything answers
 make test                     # ingest (pytest) + corridor-api (cargo) tests
 ```
 
+`make test` is self-provisioning for Python: the validator tests run **inside
+the ingest Docker image** (pytest is pinned in `ingest/requirements.txt`), so
+you need no host Python packages — only Docker and a Rust toolchain for the
+`corridor-api` tests. Run just one side with `make test-python` or
+`make test-rust`.
+
 ## Adding a new species
 
 The pipeline is taxon-driven, so a new species is mostly configuration + a
