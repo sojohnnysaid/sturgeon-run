@@ -216,6 +216,21 @@ curl -s -X POST http://localhost:8081/mcp \
   fetch (`data/snapshots/`), and the quality report is flagged
   `snapshot_mode: true`. Data is never fabricated.
 
+- **Multiple species.** The pipeline is taxon-driven: `GBIF_TAXON_NAMES` is a
+  comma-separated list, so ingest upserts each taxon into `species` and keys
+  occurrences and the corridor by `species_id`. Atlantic sturgeon is the
+  flagship; adding e.g. striped bass (*Morone saxatilis*) is config + re-run,
+  and the web field-log gains a species picker. A representative multi-species
+  run returns ~29 sturgeon and ~749 striped bass occurrences in the bbox — a
+  reminder that "how many records exist" is itself effort-biased, not abundance.
+
+- **Continuous integration.** GitHub Actions
+  (`.github/workflows/ci.yml`) runs the Rust + Python tests, fmt/clippy, and the
+  TypeScript typecheck, then builds every image and runs the full `make smoke`
+  against a live stack. To stay deterministic and off the live GBIF/USGS APIs,
+  CI ingests from a small **real** captured snapshot committed under
+  `ci/snapshots/` (flagged `snapshot_mode: true`), never fabricated data.
+
 - **What's derived — read this carefully.** The **corridor layer is a
   statistical artifact of the occurrence data, not tracked animal paths.** It is
   a hex-bin density surface: occurrence points are binned into hexagonal cells
