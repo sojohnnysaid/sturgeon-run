@@ -21,31 +21,47 @@ def _setup_logging() -> None:
     )
 
 
-def run_gbif(cfg: Config, conn, use_snapshot: bool) -> dict:
-    """Fetch, validate, load GBIF occurrences. Returns a source report dict."""
-    snap_path = cfg.snapshot_dir / "gbif_occurrences.json"
-    snapshot_mode = use_snapshot
-    session = requests.Session()
+def _resolve_taxa(cfg: Config, session, use_snapshot: bool) -> tuple[dict[str, dict], bool]:
+    """Resolve every configured taxon name to GBIF backbone metadata.
 
-    # Resolve taxon (needed for taxon_key + species upsert). Live even in
-    # snapshot mode is cheap, but honor snapshot: try snapshot metadata via a
-    # small live match; if that fails and snapshot exists, fall back.
-    taxon_key = None
-    rank = None
-    if not use_snapshot:
-        try:
-            match = gbif.match_taxon(cfg.gbif_taxon_name, session=session)
-            taxon_key = match["usageKey"]
-            rank = match.get("rank")
-        except Exception as exc:  # noqa: BLE001
-            if snap_path.exists():
-                log.warning("GBIF taxon match failed (%s); falling back to snapshot.", exc)
-                snapshot_mode = True
-            else:
-                raise
+    Returns (manifest, snapshot_mode). In snapshot mode we read the manifest
+    written on a prior live run, so NO live GBIF call is made (deterministic /
+    offline). Live mode matches each name and persists the manifest.
+    """
+    manifest_path = gbif.taxa_manifest_path(cfg.snapshot_dir)
 
-    # Fetch occurrences.
-    if snapshot_mode:
+    if use_snapshot:
+        return gbif.load_taxa_manifest(manifest_path), True
+
+    manifest: dict[str, dict] = {}
+    try:
+        for name in cfg.gbif_taxon_names:
+            match = gbif.match_taxon(name, session=session)
+            manifest[name] = {
+                "usageKey": match["usageKey"],
+                "rank": match.get("rank"),
+                "scientificName": match.get("scientificName"),
+            }
+        if cfg.write_snapshot:
+            gbif.save_taxa_manifest(manifest, manifest_path)
+        return manifest, False
+    except Exception as exc:  # noqa: BLE001
+        if manifest_path.exists():
+            log.warning("GBIF taxon match failed (%s); falling back to snapshot manifest.", exc)
+            return gbif.load_taxa_manifest(manifest_path), True
+        raise
+
+
+def _load_one_taxon(cfg: Config, conn, session, name: str, meta: dict,
+                    snapshot_mode: bool) -> dict:
+    """Fetch/load, validate, and upsert occurrences for a single taxon.
+    Returns a per-species stats dict."""
+    taxon_key = meta["usageKey"]
+    rank = meta.get("rank")
+    snap_path = gbif.occurrences_snapshot_path(cfg.snapshot_dir, taxon_key)
+    this_snapshot = snapshot_mode
+
+    if this_snapshot:
         raw = gbif.load_snapshot(snap_path)
     else:
         try:
@@ -54,40 +70,16 @@ def run_gbif(cfg: Config, conn, use_snapshot: bool) -> dict:
                 gbif.save_snapshot(raw, snap_path)
         except Exception as exc:  # noqa: BLE001
             if snap_path.exists():
-                log.warning("GBIF live fetch FAILED (%s); FALLING BACK to snapshot.", exc)
+                log.warning("GBIF live fetch FAILED for %r (%s); FALLING BACK to snapshot.",
+                            name, exc)
                 raw = gbif.load_snapshot(snap_path)
-                snapshot_mode = True
+                this_snapshot = True
             else:
                 raise
 
-    # If we never resolved a taxon key (pure snapshot mode), read existing one
-    # from DB or fall back to a match attempt; species upsert still needs a key.
-    if taxon_key is None:
-        # Try a live match once more (metadata only) — but do not fail the whole
-        # run if offline; use whatever is already stored.
-        try:
-            match = gbif.match_taxon(cfg.gbif_taxon_name, session=session)
-            taxon_key = match["usageKey"]
-            rank = match.get("rank")
-        except Exception:  # noqa: BLE001
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT gbif_taxon_key, rank FROM species WHERE scientific_name = %s",
-                    (cfg.gbif_taxon_name,),
-                )
-                row = cur.fetchone()
-            if row and row[0]:
-                taxon_key, rank = row[0], row[1]
-            else:
-                raise RuntimeError(
-                    "Cannot resolve GBIF taxon key (offline and none stored)."
-                )
+    species_id = db.upsert_species_taxon_key(conn, name, taxon_key, rank)
 
-    species_id = db.upsert_species_taxon_key(conn, cfg.gbif_taxon_name, taxon_key, rank)
-
-    records_fetched = len(raw)
     normalized = [gbif.normalize(r) for r in raw]
-
     drop_reasons = {
         "missing_coordinates": 0,
         "outside_bbox": 0,
@@ -95,8 +87,6 @@ def run_gbif(cfg: Config, conn, use_snapshot: bool) -> dict:
         "duplicate": 0,
     }
     null_date_count = 0
-
-    # Dedup within run by gbif_id.
     deduped, dup_count = validate.dedup_by_key(normalized, "gbif_id")
     drop_reasons["duplicate"] += dup_count
 
@@ -115,9 +105,7 @@ def run_gbif(cfg: Config, conn, use_snapshot: bool) -> dict:
             drop_reasons["excluded_basis_of_record"] += 1
             continue
         event_date = validate.parse_event_date(rec.get("eventDate"))
-        if event_date is None and rec.get("eventDate"):
-            null_date_count += 1
-        elif event_date is None:
+        if event_date is None:
             null_date_count += 1
         to_load.append({
             "gbif_id": rec.get("gbif_id"),
@@ -132,17 +120,73 @@ def run_gbif(cfg: Config, conn, use_snapshot: bool) -> dict:
         })
 
     written = db.upsert_occurrences(conn, species_id, to_load)
-    records_kept = len(to_load)
-
-    notes = f"GBIF backbone taxonKey {taxon_key}; bbox {cfg.bbox}"
-    if null_date_count:
-        notes += f"; kept {null_date_count} records with null/unparseable date"
     log.info(
-        "GBIF summary: fetched=%d kept=%d written=%d drops=%s",
-        records_fetched, records_kept, written, drop_reasons,
+        "GBIF %r (species_id=%d, key=%s): fetched=%d kept=%d written=%d drops=%s",
+        name, species_id, taxon_key, len(raw), len(to_load), written,
+        {k: v for k, v in drop_reasons.items() if v},
+    )
+    return {
+        "name": name,
+        "species_id": species_id,
+        "taxon_key": taxon_key,
+        "records_fetched": len(raw),
+        "records_kept": len(to_load),
+        "drop_reasons": drop_reasons,
+        "null_dates": null_date_count,
+        "snapshot_mode": this_snapshot,
+    }
+
+
+def run_gbif(cfg: Config, conn, use_snapshot: bool) -> dict:
+    """Fetch, validate, load GBIF occurrences for every configured taxon.
+    Returns ONE 'gbif' source report whose notes carry per-species counts."""
+    session = requests.Session()
+    manifest, snapshot_mode = _resolve_taxa(cfg, session, use_snapshot)
+
+    per_species: list[dict] = []
+    for name in cfg.gbif_taxon_names:
+        meta = manifest.get(name)
+        if meta is None:
+            # Snapshot manifest lacks a name that was added to the config: honest
+            # failure rather than silently skipping a requested taxon.
+            raise RuntimeError(
+                f"No GBIF manifest entry for {name!r} in {gbif.taxa_manifest_path(cfg.snapshot_dir)}. "
+                "Run a live ingest once (WRITE_SNAPSHOT=1) to record it."
+            )
+        stats = _load_one_taxon(cfg, conn, session, name, meta, snapshot_mode)
+        per_species.append(stats)
+
+    # Aggregate into a single per-source report, summing drop reasons and
+    # noting per-species counts (contract keeps one row per source).
+    agg_reasons: dict[str, int] = {}
+    total_fetched = total_kept = total_null = 0
+    any_snapshot = False
+    for s in per_species:
+        total_fetched += s["records_fetched"]
+        total_kept += s["records_kept"]
+        total_null += s["null_dates"]
+        any_snapshot = any_snapshot or s["snapshot_mode"]
+        for k, v in s["drop_reasons"].items():
+            agg_reasons[k] = agg_reasons.get(k, 0) + v
+
+    per_species_note = "; ".join(
+        f"{s['name']} (key={s['taxon_key']}, species_id={s['species_id']}) "
+        f"kept={s['records_kept']}/{s['records_fetched']}"
+        for s in per_species
+    )
+    notes = (
+        f"GBIF backbone; {len(per_species)} taxa; bbox {cfg.bbox}; "
+        f"per-species: {per_species_note}"
+    )
+    if total_null:
+        notes += f"; kept {total_null} records with null/unparseable date"
+
+    log.info(
+        "GBIF summary (all taxa): fetched=%d kept=%d drops=%s",
+        total_fetched, total_kept, {k: v for k, v in agg_reasons.items() if v},
     )
     return report.build_source_report(
-        "gbif", snapshot_mode, records_fetched, records_kept, drop_reasons, notes
+        "gbif", any_snapshot, total_fetched, total_kept, agg_reasons, notes
     )
 
 

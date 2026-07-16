@@ -98,6 +98,29 @@ body {
   margin: 4px 2px 8px;
 }
 
+/* ---- Species picker ---- */
+.species-picker {
+  margin-bottom: 14px;
+}
+
+.species-picker__select {
+  width: 100%;
+  margin-top: 2px;
+  padding: 8px 10px;
+  background: var(--base-deep);
+  color: var(--text);
+  border: 1px solid var(--base-line);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.species-picker__select:focus {
+  outline: none;
+  border-color: var(--eelgrass);
+}
+
 /* ---- Layer entries ---- */
 .layer {
   border: 1px solid var(--base-line);

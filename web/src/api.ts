@@ -76,10 +76,11 @@ export function fetchSpecies() {
   return getJSON<Species[]>("/api/species");
 }
 
-export function fetchOccurrences(from?: string, to?: string) {
+export function fetchOccurrences(from?: string, to?: string, speciesId?: number) {
   const q = new URLSearchParams();
   if (from) q.set("from", from);
   if (to) q.set("to", to);
+  if (speciesId != null) q.set("species_id", String(speciesId));
   q.set("limit", "5000");
   return getJSON<FeatureCollection<OccurrenceProps>>(`/api/occurrences?${q.toString()}`);
 }
@@ -120,6 +121,7 @@ export interface CorridorSummary {
   bbox: [number, number, number, number];
 }
 
-export function fetchCorridorSummary() {
-  return getJSON<CorridorSummary>("/api/corridor/summary");
+export function fetchCorridorSummary(speciesId?: number) {
+  const q = speciesId != null ? `?species_id=${speciesId}` : "";
+  return getJSON<CorridorSummary>(`/api/corridor/summary${q}`);
 }

@@ -44,7 +44,9 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://sturgeon:change-me-in-dev@postgis:5432/sturgeon}
       HUDSON_BBOX: ${HUDSON_BBOX:--74.10,40.55,-73.60,42.75}
-      GBIF_TAXON_NAME: ${GBIF_TAXON_NAME:-Acipenser oxyrinchus}
+      # Comma-separated taxa (multi-species). Defaults to the flagship taxon;
+      # the first name becomes species_id=1.
+      GBIF_TAXON_NAMES: ${GBIF_TAXON_NAMES:-Acipenser oxyrinchus}
       USGS_SITES: ${USGS_SITES:-}
       USE_SNAPSHOT: ${USE_SNAPSHOT:-0}
       WRITE_SNAPSHOT: ${WRITE_SNAPSHOT:-1}

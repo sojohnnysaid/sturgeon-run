@@ -29,11 +29,24 @@ _PROJECT_ROOT = _INGEST_DIR.parent
 _DATA_DIR = _PROJECT_ROOT / "data"
 
 
+def _parse_taxon_names(raw: str) -> list[str]:
+    """Split a comma-separated taxon list, trimming blanks and de-duplicating
+    while preserving order (so the flagship taxon stays species_id=1)."""
+    seen: set[str] = set()
+    names: list[str] = []
+    for part in raw.split(","):
+        name = part.strip()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
 @dataclass
 class Config:
     database_url: str
     bbox: tuple[float, float, float, float]
-    gbif_taxon_name: str
+    gbif_taxon_names: list[str]
     usgs_sites: list[str] = field(default_factory=list)
     use_snapshot: bool = False
     write_snapshot: bool = True
@@ -53,13 +66,19 @@ class Config:
         if not database_url:
             raise RuntimeError("DATABASE_URL is required (set it in the environment).")
         bbox = _parse_bbox(os.environ.get("HUDSON_BBOX", "-74.10,40.55,-73.60,42.75"))
-        taxon = os.environ.get("GBIF_TAXON_NAME", "Acipenser oxyrinchus").strip()
+        # GBIF_TAXON_NAMES is a comma list (multi-species); defaults to the
+        # single flagship taxon so existing single-species runs are unchanged.
+        taxa = _parse_taxon_names(
+            os.environ.get("GBIF_TAXON_NAMES", "Acipenser oxyrinchus")
+        )
+        if not taxa:
+            raise RuntimeError("GBIF_TAXON_NAMES resolved to an empty list.")
         raw_sites = os.environ.get("USGS_SITES", "").strip()
         sites = [s.strip() for s in raw_sites.split(",") if s.strip()] if raw_sites else []
         return cls(
             database_url=database_url,
             bbox=bbox,
-            gbif_taxon_name=taxon,
+            gbif_taxon_names=taxa,
             usgs_sites=sites,
             use_snapshot=_bool_env("USE_SNAPSHOT", False),
             write_snapshot=_bool_env("WRITE_SNAPSHOT", True),

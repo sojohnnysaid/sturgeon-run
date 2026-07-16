@@ -5,11 +5,13 @@ import {
   fetchOccurrences,
   fetchLatestReadings,
   fetchQualityReport,
+  fetchSpecies,
   fetchStations,
   type FeatureCollection,
   type LatestReading,
   type OccurrenceProps,
   type QualityReport,
+  type Species,
   type StationProps,
 } from "./api";
 import MapView, { type Visibility } from "./components/MapView";
@@ -31,6 +33,11 @@ export default function App() {
   const [corridorMax, setCorridorMax] = useState(1);
   const [corridorCells, setCorridorCells] = useState(0);
 
+  // Multi-species: the field log has a picker; occurrences + corridor are
+  // fetched/filtered per selected species_id.
+  const [species, setSpecies] = useState<Species[]>([]);
+  const [speciesId, setSpeciesId] = useState<number | null>(null);
+
   const [minYear, setMinYear] = useState(FALLBACK_MIN);
   const [maxYear, setMaxYear] = useState(FALLBACK_MAX);
   const [fromYear, setFromYear] = useState(FALLBACK_MIN);
@@ -46,40 +53,56 @@ export default function App() {
   const [status, setStatus] = useState("loading…");
   const [error, setError] = useState<string | null>(null);
 
-  // ---- initial, non-time-filtered loads ----
+  // ---- initial, non-time/species-filtered loads ----
   useEffect(() => {
     (async () => {
       try {
-        const [sta, rd, rep, tj, sum] = await Promise.all([
+        const [sta, rd, rep, tj, spp] = await Promise.all([
           fetchStations(),
           fetchLatestReadings(),
           fetchQualityReport(),
           fetchCorridorTileJSON().catch(() => null),
-          fetchCorridorSummary().catch(() => null),
+          fetchSpecies().catch(() => [] as Species[]),
         ]);
         setStations(sta);
         setReadings(rd);
         setReport(rep);
         if (tj?.vector_layers?.length) setCorridorLayer(tj.vector_layers[0].id);
         else setCorridorLayer("corridor_cells");
-        if (sum?.max_cell_count) setCorridorMax(sum.max_cell_count);
-        if (sum?.cell_count) setCorridorCells(sum.cell_count);
+        setSpecies(spp);
+        if (spp.length) setSpeciesId((cur) => cur ?? spp[0].id);
       } catch (e) {
         setError(String(e instanceof Error ? e.message : e));
       }
     })();
   }, []);
 
-  // ---- occurrences: initial + refetch on time change ----
+  // ---- corridor summary per selected species (drives coloring + count) ----
   useEffect(() => {
+    if (speciesId == null) return;
+    let cancelled = false;
+    (async () => {
+      const sum = await fetchCorridorSummary(speciesId).catch(() => null);
+      if (cancelled) return;
+      setCorridorMax(sum?.max_cell_count ? sum.max_cell_count : 1);
+      setCorridorCells(sum?.cell_count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [speciesId]);
+
+  // ---- occurrences: initial + refetch on time or species change ----
+  useEffect(() => {
+    if (speciesId == null) return;
     let cancelled = false;
     (async () => {
       try {
         setStatus("fetching occurrences…");
-        // Only pass date bounds once the user has moved off the full range.
+        // Only pass date bounds once the range is initialized for this species.
         const from = rangeInit.current ? `${fromYear}-01-01` : undefined;
         const to = rangeInit.current ? `${toYear}-12-31` : undefined;
-        const fc = await fetchOccurrences(from, to);
+        const fc = await fetchOccurrences(from, to, speciesId);
         if (cancelled) return;
         setOccurrences(fc);
 
@@ -107,12 +130,18 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [fromYear, toYear]);
+  }, [fromYear, toYear, speciesId]);
 
   const onTimeChange = useCallback((f: number, t: number) => {
     if (f > t) return; // keep from <= to
     setFromYear(f);
     setToYear(t);
+  }, []);
+
+  const onSpeciesChange = useCallback((id: number) => {
+    // Recompute the year range for the newly selected species on next fetch.
+    rangeInit.current = false;
+    setSpeciesId(id);
   }, []);
 
   const onToggle = useCallback((key: string) => {
@@ -172,12 +201,16 @@ export default function App() {
         readings={readings}
         corridorSourceLayer={corridorLayer}
         corridorMaxCount={corridorMax}
+        corridorSpeciesId={speciesId}
         visibility={visibility}
       />
       <FieldLog
         layers={layers}
         onToggle={onToggle}
         report={report}
+        species={species}
+        speciesId={speciesId}
+        onSpeciesChange={onSpeciesChange}
         minYear={minYear}
         maxYear={maxYear}
         fromYear={fromYear}

@@ -90,6 +90,32 @@ def fetch_occurrences_live(
     return records
 
 
+def occurrences_snapshot_path(snapshot_dir: Path, taxon_key: int) -> Path:
+    """Per-taxon occurrence snapshot file, so multi-species runs stay reloadable
+    offline without collisions."""
+    return snapshot_dir / f"gbif_occurrences_{taxon_key}.json"
+
+
+def taxa_manifest_path(snapshot_dir: Path) -> Path:
+    """Manifest mapping scientific_name -> resolved GBIF backbone metadata.
+    Lets snapshot mode resolve taxon keys WITHOUT any live GBIF call."""
+    return snapshot_dir / "gbif_taxa.json"
+
+
+def save_taxa_manifest(manifest: dict[str, dict], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    log.info("Wrote GBIF taxa manifest: %s (%d taxa)", path, len(manifest))
+
+
+def load_taxa_manifest(path: Path) -> dict[str, dict]:
+    if not path.exists():
+        raise FileNotFoundError(f"GBIF taxa manifest not found: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    log.info("Loaded GBIF taxa manifest: %s (%d taxa)", path, len(data))
+    return data
+
+
 def save_snapshot(records: list[dict], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(records), encoding="utf-8")

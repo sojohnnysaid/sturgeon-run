@@ -46,12 +46,14 @@ re-run.
    VALUES ('Morone saxatilis', 'Striped bass', 'SPECIES')
    ON CONFLICT (scientific_name) DO NOTHING;
    ```
-2. **Point ingest at it.** Set `GBIF_TAXON_NAME` in `.env` (ingest resolves the
-   GBIF backbone key and stores it on the species row). For multiple taxa,
-   extend `ingest/sturgeon_ingest/config.py` to iterate a list — the GBIF and
-   validation code already keys everything by species.
-3. **Re-run** `make ingest` (idempotent) and `make derive` (recomputes the
-   corridor for the new `species_id`).
+2. **Point ingest at it.** Add the scientific name to `GBIF_TAXON_NAMES` in
+   `.env` — it's a comma-separated list, e.g.
+   `GBIF_TAXON_NAMES="Acipenser oxyrinchus,Morone saxatilis"`. Ingest resolves
+   each GBIF backbone key, upserts a `species` row, and keys occurrences by
+   `species_id`. (Step 1's manual `INSERT` is optional — ingest upserts the
+   species for you; use it only to set a `common_name`.)
+3. **Re-run** `make ingest` (idempotent — iterates every taxon) and
+   `make derive` (recomputes the corridor for *every* `species_id`).
 4. The API, MCP tools, and web layer panel are species-aware
    (`?species_id=`), so the new taxon appears without front-end changes.
    `list_species` / `GET /api/species` will show it.

@@ -22,6 +22,7 @@ interface Props {
   readings: LatestReading[];
   corridorSourceLayer: string | null;
   corridorMaxCount: number;
+  corridorSpeciesId: number | null;
   visibility: Visibility;
 }
 
@@ -35,6 +36,7 @@ export default function MapView({
   readings,
   corridorSourceLayer,
   corridorMaxCount,
+  corridorSpeciesId,
   visibility,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -147,6 +149,28 @@ export default function MapView({
     if (stations) (map.getSource(STA_SRC) as maplibregl.GeoJSONSource)?.setData(stations);
   }
 
+  // Corridor cells for ALL species share one tile table; filter to the picked
+  // species so only its density surface shows.
+  function corridorFilter(): maplibregl.FilterSpecification | null {
+    if (corridorSpeciesId == null) return null;
+    return ["==", ["get", "species_id"], corridorSpeciesId];
+  }
+
+  function corridorFillColor(): maplibregl.DataDrivenPropertyValueSpecification<string> {
+    const max = Math.max(1, corridorMaxCount);
+    return [
+      "interpolate",
+      ["linear"],
+      ["coalesce", ["get", "occurrence_count"], 0],
+      0,
+      palette.base,
+      max / 2,
+      palette.eelgrass,
+      max,
+      palette.eelgrassLight,
+    ];
+  }
+
   // ---- add the Martin vector-tile corridor source/layer ----
   function syncCorridor() {
     const map = mapRef.current;
@@ -161,25 +185,16 @@ export default function MapView({
       maxzoom: 14,
     });
 
-    const max = Math.max(1, corridorMaxCount);
+    const filter = corridorFilter();
     map.addLayer(
       {
         id: `${COR_SRC}-fill`,
         type: "fill",
         source: COR_SRC,
         "source-layer": corridorSourceLayer,
+        ...(filter ? { filter } : {}),
         paint: {
-          "fill-color": [
-            "interpolate",
-            ["linear"],
-            ["coalesce", ["get", "occurrence_count"], 0],
-            0,
-            palette.base,
-            max / 2,
-            palette.eelgrass,
-            max,
-            palette.eelgrassLight,
-          ],
+          "fill-color": corridorFillColor(),
           "fill-opacity": 0.45,
         },
       },
@@ -191,6 +206,7 @@ export default function MapView({
         type: "line",
         source: COR_SRC,
         "source-layer": corridorSourceLayer,
+        ...(filter ? { filter } : {}),
         paint: {
           "line-color": palette.eelgrass,
           "line-opacity": 0.5,
@@ -201,6 +217,19 @@ export default function MapView({
     );
     corridorAddedRef.current = true;
     syncVisibility();
+  }
+
+  // ---- update corridor species filter + coloring when the picker changes ----
+  function syncCorridorSpecies() {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !corridorAddedRef.current) return;
+    const filter = corridorFilter();
+    [`${COR_SRC}-fill`, `${COR_SRC}-line`].forEach((id) => {
+      if (map.getLayer(id)) map.setFilter(id, filter ?? null);
+    });
+    if (map.getLayer(`${COR_SRC}-fill`)) {
+      map.setPaintProperty(`${COR_SRC}-fill`, "fill-color", corridorFillColor());
+    }
   }
 
   function syncVisibility() {
@@ -217,6 +246,7 @@ export default function MapView({
 
   useEffect(syncData, [occurrences, stations]);
   useEffect(syncCorridor, [corridorSourceLayer, corridorMaxCount]);
+  useEffect(syncCorridorSpecies, [corridorSpeciesId, corridorMaxCount]);
   useEffect(syncVisibility, [visibility]);
 
   return <div className="map" ref={containerRef} />;

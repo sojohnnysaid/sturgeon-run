@@ -1,4 +1,4 @@
-import type { QualityReport, QualitySource } from "../api";
+import type { QualityReport, QualitySource, Species } from "../api";
 import TimeFilter from "./TimeFilter";
 
 export interface LayerEntry {
@@ -15,6 +15,9 @@ interface Props {
   layers: LayerEntry[];
   onToggle: (key: string) => void;
   report: QualityReport | null;
+  species: Species[];
+  speciesId: number | null;
+  onSpeciesChange: (id: number) => void;
   minYear: number;
   maxYear: number;
   fromYear: number;
@@ -52,6 +55,9 @@ export default function FieldLog({
   layers,
   onToggle,
   report,
+  species,
+  speciesId,
+  onSpeciesChange,
   minYear,
   maxYear,
   fromYear,
@@ -77,6 +83,28 @@ export default function FieldLog({
       </div>
 
       <div className="fieldlog__body">
+        {species.length > 0 && (
+          <div className="species-picker">
+            <label className="fieldlog__section-label" htmlFor="species-select">
+              Species
+            </label>
+            <select
+              id="species-select"
+              className="species-picker__select"
+              value={speciesId ?? ""}
+              onChange={(e) => onSpeciesChange(Number(e.target.value))}
+            >
+              {species.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.common_name
+                    ? `${s.common_name} — ${s.scientific_name}`
+                    : s.scientific_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="fieldlog__section-label">Layers</div>
 
         {layers.map((l) => (

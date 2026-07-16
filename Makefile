@@ -37,8 +37,15 @@ ingest-snapshot: env ## Run ingest from cached snapshots (offline / degraded mod
 	$(COMPOSE) run --rm -e USE_SNAPSHOT=1 ingest --snapshot --source all
 
 .PHONY: derive
-derive: ## Recompute the derived corridor layer from occurrences
-	@curl -fsS -X POST "http://localhost:8080/api/corridor/derive" && echo
+derive: ## Recompute the derived corridor layer for EVERY species
+	# Multi-species: derive per species_id so each taxon gets its own corridor.
+	@ids=$$(curl -fsS "http://localhost:8080/api/species" \
+		| grep -oE '"id"[[:space:]]*:[[:space:]]*[0-9]+' | grep -oE '[0-9]+'); \
+	test -n "$$ids" || { echo "no species found (run 'make ingest' first)"; exit 1; }; \
+	for id in $$ids; do \
+		echo -n "  species_id=$$id -> "; \
+		curl -fsS -X POST "http://localhost:8080/api/corridor/derive?species_id=$$id" && echo; \
+	done
 
 .PHONY: smoke
 smoke: ## Curl every healthcheck + MCP tools/list + one tools/call; fail loudly
